@@ -1,24 +1,7 @@
 --[[
 ╔══════════════════════════════════════════════════════════════╗
-║           DA HOOD  ·  GOD SCRIPT  ·  v4.0                   ║
-║  UI inspired by Evon / LevouchiaX / Skido.gg grid style     ║
-║                                                              ║
-║  FEATURES:                                                   ║
-║  • Exact Evon-style dark grid GUI (black bg, neon pink btns) ║
-║  • Main Scripts: GodBlock, Reach, Target, GodArmor,          ║
-║    NoRecoil, View, Headless, Fling, GoTo, FreeFists,         ║
-║    FlyMode, NoClip, FlySpeed controls                        ║
-║  • CHARACTER TAB (Skido.gg style):                           ║
-║    Equip All Guns, Headless(CS), White Character, Fling Touch║
-║    Spam Call All, Rotating Crosshair, Anti Void, Auto Armor  ║
-║    Percent to Buy slider, Spinbot + Spin Speed slider        ║
-║  • BUY MENU: Buy all weapons, ammo, armor, food              ║
-║  • Aimbot / Silent Aim / ESP / Chams                         ║
-║  • Custom Title Billboard (visible to everyone)              ║
-║  • Teleports: Bank, Hospital, Jail, Spawn + 10 more          ║
-║  • Admin chat commands (csync prefix)                        ║
-║  • Right-side stats panel (Cash, Bounty, Crew)               ║
-║  • Toggle: RightShift                                        ║
+║           DA HOOD  ·  PHANTOM SCRIPT  ·  v4.0                           ║
+║  UI inspired by Evon / LevouchiaX / Skido.gg grid style                 ║            
 ╚══════════════════════════════════════════════════════════════╝
 ]]
 
