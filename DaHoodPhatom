@@ -1484,7 +1484,7 @@ TweenService:Create(W,TweenInfo.new(0.35,Enum.EasingStyle.Back,Enum.EasingDirect
 -- ══════════════════════════════════════════════════
 -- STARTUP NOTIFICATIONS
 -- ══════════════════════════════════════════════════
-task.wait(0.5);  Notify("NEXUS v6","✅ Loaded! 2026 Edition — Da Hood God Script",5,C.AccentGlow)
+task.wait(0.5);  Notify("PHANTOM v6","✅ Loaded! 2026 Edition — Da Hood God Script",5,C.AccentGlow)
 task.wait(1.2);  Notify("KEYBINDS","Z=NoClip  X=Fly  C=KillAura  RShift=Toggle",5,C.Yellow)
 task.wait(1.2);  Notify("NEW FEATURES","Prediction Aimbot • Triggerbot • Hitbox Expander\nKill Aura • Auto Farm • Radar • Tracers",6,C.Green)
 task.wait(1.5);  Notify("COMMANDS","Chat: csync cgod | cfly | cspeed 100 | ckill | ctp bank",5,C.TextDim)
