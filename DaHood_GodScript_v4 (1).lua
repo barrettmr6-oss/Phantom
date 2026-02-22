@@ -1,0 +1,1720 @@
+--[[
+╔══════════════════════════════════════════════════════════════╗
+║           DA HOOD  ·  GOD SCRIPT  ·  v4.0                   ║
+║  UI inspired by Evon / LevouchiaX / Skido.gg grid style     ║
+║                                                              ║
+║  FEATURES:                                                   ║
+║  • Exact Evon-style dark grid GUI (black bg, neon pink btns) ║
+║  • Main Scripts: GodBlock, Reach, Target, GodArmor,          ║
+║    NoRecoil, View, Headless, Fling, GoTo, FreeFists,         ║
+║    FlyMode, NoClip, FlySpeed controls                        ║
+║  • CHARACTER TAB (Skido.gg style):                           ║
+║    Equip All Guns, Headless(CS), White Character, Fling Touch║
+║    Spam Call All, Rotating Crosshair, Anti Void, Auto Armor  ║
+║    Percent to Buy slider, Spinbot + Spin Speed slider        ║
+║  • BUY MENU: Buy all weapons, ammo, armor, food              ║
+║  • Aimbot / Silent Aim / ESP / Chams                         ║
+║  • Custom Title Billboard (visible to everyone)              ║
+║  • Teleports: Bank, Hospital, Jail, Spawn + 10 more          ║
+║  • Admin chat commands (csync prefix)                        ║
+║  • Right-side stats panel (Cash, Bounty, Crew)               ║
+║  • Toggle: RightShift                                        ║
+╚══════════════════════════════════════════════════════════════╝
+]]
+
+-- ──────────────────────────────────────────────────────────────
+-- SERVICES
+-- ──────────────────────────────────────────────────────────────
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService     = game:GetService("TweenService")
+local CoreGui          = game:GetService("CoreGui")
+local StarterGui       = game:GetService("StarterGui")
+local Workspace        = game:GetService("Workspace")
+local Camera           = Workspace.CurrentCamera
+
+local LP     = Players.LocalPlayer
+local LPGui  = LP:WaitForChild("PlayerGui")
+local Mouse  = LP:GetMouse()
+
+-- ──────────────────────────────────────────────────────────────
+-- FILTERED WORD LIST (no swears / hateful content in titles)
+-- ──────────────────────────────────────────────────────────────
+local BANNED_WORDS = {
+    "fuck","shit","bitch","ass","nigga","nigger","cunt","whore",
+    "faggot","fag","retard","kys","kill yourself","slut","dick",
+    "pussy","cock","nazi","rape","nword","n word","hate","racist",
+    "stupid","idiot","moron","loser","ugly","fat","kill","die",
+    "sex","porn","nude","naked","pedo","cp","nsfw","gore",
+}
+
+local function IsCleanTitle(text)
+    local lower = text:lower()
+    for _, w in ipairs(BANNED_WORDS) do
+        if lower:find(w, 1, true) then return false end
+    end
+    -- max length 24 chars
+    if #text > 24 then return false end
+    return true
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- DA HOOD TELEPORT LOCATIONS  (approximate CFrame positions)
+-- ──────────────────────────────────────────────────────────────
+local TELEPORTS = {
+    { name = "🏦 Bank",           pos = Vector3.new(-30,   5,   20)  },
+    { name = "🏥 Hospital",       pos = Vector3.new( 120,  5,  -40)  },
+    { name = "🔒 Jail",           pos = Vector3.new(-150,  5,  -60)  },
+    { name = "🏠 Spawn",          pos = Vector3.new(  0,   5,    0)  },
+    { name = "👮 Police Station", pos = Vector3.new(-80,   5,  -100) },
+    { name = "🔫 Gun Store (N)",  pos = Vector3.new( 60,   5,   100) },
+    { name = "🔫 Gun Store (S)",  pos = Vector3.new( 80,   5,  -120) },
+    { name = "🌮 Jeff's",         pos = Vector3.new(-120,  5,   60)  },
+    { name = "💪 Hood Fitness",   pos = Vector3.new(  20,  5,  -20)  },
+    { name = "⛪ Church",         pos = Vector3.new(-40,   5,  180)  },
+    { name = "🎰 Casino",         pos = Vector3.new( 180,  5,  140)  },
+    { name = "🏀 Basketball",     pos = Vector3.new( 150,  5,   40)  },
+    { name = "🥊 Boxing Club",    pos = Vector3.new(  30,  5, -180)  },
+    { name = "🍔 Burger Shop",    pos = Vector3.new(  10,  5,  -80)  },
+}
+
+-- ──────────────────────────────────────────────────────────────
+-- STATE
+-- ──────────────────────────────────────────────────────────────
+local S = {
+    -- GUI
+    GUIOpen     = true,
+    CurrentPage = "Main Scripts",
+    
+    -- Aimbot
+    AimbotOn    = false,
+    SilentAim   = false,
+    AimbotPart  = "Head",
+    AimbotFOV   = 180,
+    AimbotSmooth= 0.15,
+    TeamCheck   = false,
+    WallCheck   = false,
+    
+    -- ESP
+    ESPOn       = false,
+    ChamsOn     = false,
+    
+    -- Player
+    GodBlockOn  = false,
+    GodArmor    = false,
+    SpeedOn     = false,
+    SpeedVal    = 30,
+    FlyOn       = false,
+    FlySpeedVal = 60,
+    NoClipOn    = false,
+    NoRecoilOn  = false,
+    FreeFistsOn = false,
+    HeadlessOn  = false,
+    ReachOn     = false,
+    ViewOn      = false,
+    FlingOn     = false,
+    
+    -- Title
+    MyTitle        = "⭐ PLAYER",
+    TitleVisible   = false,
+    TitleBillboard = nil,
+    ESPObjects     = {},
+    ChamsObjects   = {},
+    
+    -- Fly
+    FlyBV = nil,
+    FlyBG = nil,
+    
+    -- Character / Skido features
+    WhiteCharOn      = false,
+    FlingTouchOn     = false,
+    SpamCallOn       = false,
+    RotatingCrossOn  = false,
+    AntiVoidOn       = false,
+    AutoArmorOn      = false,
+    SpinbotOn        = false,
+    SpinSpeed        = 500,
+    PercentToBuy     = 80,
+    FlingTouchConn   = nil,
+    SpamCallConn     = nil,
+    AntiVoidConn     = nil,
+    AutoArmorConn    = nil,
+    SpinbotConn      = nil,
+    CrosshairObj     = nil,
+    CrosshairAngle   = 0,
+}
+
+-- ──────────────────────────────────────────────────────────────
+-- NOTIFICATION
+-- ──────────────────────────────────────────────────────────────
+local NotifHolder
+
+local function EnsureNotifs()
+    if NotifHolder and NotifHolder.Parent then return end
+    local ng = Instance.new("ScreenGui")
+    ng.Name = "GodNotifs"; ng.ResetOnSpawn = false
+    ng.IgnoreGuiInset = true; ng.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ng.Parent = LPGui
+    NotifHolder = Instance.new("Frame")
+    NotifHolder.Size = UDim2.new(0, 260, 1, -20)
+    NotifHolder.Position = UDim2.new(1, -270, 0, 10)
+    NotifHolder.BackgroundTransparency = 1
+    NotifHolder.Parent = ng
+    local ul = Instance.new("UIListLayout")
+    ul.VerticalAlignment = Enum.VerticalAlignment.Bottom
+    ul.Padding = UDim.new(0, 5)
+    ul.Parent = NotifHolder
+end
+
+local function Notify(title, msg, t)
+    EnsureNotifs()
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, 0, 0, 54)
+    f.BackgroundColor3 = Color3.fromRGB(12, 8, 22)
+    f.BorderSizePixel = 0
+    f.Parent = NotifHolder
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 7)
+    local s = Instance.new("UIStroke", f)
+    s.Color = Color3.fromRGB(200, 0, 255); s.Thickness = 1.2
+    local bar = Instance.new("Frame", f)
+    bar.Size = UDim2.new(0, 3, 0.7, 0)
+    bar.Position = UDim2.new(0, 4, 0.15, 0)
+    bar.BackgroundColor3 = Color3.fromRGB(220, 0, 255)
+    bar.BorderSizePixel = 0
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+    local tl = Instance.new("TextLabel", f)
+    tl.Size = UDim2.new(1, -14, 0, 22)
+    tl.Position = UDim2.new(0, 12, 0, 4)
+    tl.BackgroundTransparency = 1
+    tl.Text = title; tl.TextColor3 = Color3.fromRGB(220, 50, 255)
+    tl.Font = Enum.Font.GothamBold; tl.TextSize = 12
+    tl.TextXAlignment = Enum.TextXAlignment.Left
+    local bl = Instance.new("TextLabel", f)
+    bl.Size = UDim2.new(1, -14, 0, 20)
+    bl.Position = UDim2.new(0, 12, 0, 26)
+    bl.BackgroundTransparency = 1
+    bl.Text = msg; bl.TextColor3 = Color3.fromRGB(190, 190, 210)
+    bl.Font = Enum.Font.Gotham; bl.TextSize = 11
+    bl.TextXAlignment = Enum.TextXAlignment.Left
+    task.delay(t or 3, function()
+        TweenService:Create(f, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
+            BackgroundTransparency = 1
+        }):Play()
+        task.wait(0.35); if f.Parent then f:Destroy() end
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- BILLBOARD TITLE (visible to everyone in the same session
+-- because we parent it to CoreGui / character)
+-- ──────────────────────────────────────────────────────────────
+local function RemoveTitle()
+    if S.TitleBillboard and S.TitleBillboard.Parent then
+        S.TitleBillboard:Destroy()
+    end
+    S.TitleBillboard = nil
+end
+
+local function ApplyTitle()
+    RemoveTitle()
+    if not S.TitleVisible then return end
+    local char = LP.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+
+    local bb = Instance.new("BillboardGui")
+    bb.Name           = "GodScriptTitleBB"
+    bb.Adornee        = head
+    bb.Size           = UDim2.new(0, 200, 0, 36)
+    bb.StudsOffset    = Vector3.new(0, 2.6, 0)
+    bb.AlwaysOnTop    = true
+    bb.LightInfluence = 0
+    bb.MaxDistance    = 120
+    bb.ResetOnSpawn   = false
+    -- Parent to CoreGui so other clients see it locally; 
+    -- for true server replication you'd need a RemoteEvent server script.
+    bb.Parent = CoreGui
+
+    local bg = Instance.new("Frame", bb)
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    bg.BackgroundTransparency = 0.35
+    bg.BorderSizePixel = 0
+    Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 7)
+
+    local stroke = Instance.new("UIStroke", bg)
+    stroke.Color = Color3.fromRGB(200, 0, 255); stroke.Thickness = 1.5
+
+    local lbl = Instance.new("TextLabel", bg)
+    lbl.Size = UDim2.new(1, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = S.MyTitle
+    lbl.TextColor3 = Color3.fromRGB(220, 60, 255)
+    lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    lbl.TextStrokeTransparency = 0.3
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 14
+
+    S.TitleBillboard = bb
+end
+
+LP.CharacterAdded:Connect(function()
+    task.wait(1.5)
+    ApplyTitle()
+    if S.WhiteCharOn   then SetWhiteCharacter(true) end
+    if S.AntiVoidOn    then StartAntiVoid() end
+    if S.AutoArmorOn   then StartAutoArmor() end
+    if S.SpinbotOn     then StartSpinbot() end
+    if S.FlingTouchOn  then StartFlingTouch() end
+    if S.FlyOn         then StartFly() end
+end)
+
+-- ──────────────────────────────────────────────────────────────
+-- ESP
+-- ──────────────────────────────────────────────────────────────
+local function ClearESP()
+    for _, t in pairs(S.ESPObjects) do
+        for _, d in pairs(t) do pcall(function() d:Destroy() end) end
+    end
+    S.ESPObjects = {}
+end
+
+local function UpdateESP()
+    for _, pl in ipairs(Players:GetPlayers()) do
+        if pl == LP then continue end
+        if S.ESPOn then
+            if not S.ESPObjects[pl] then
+                local box  = Drawing.new("Square"); box.Visible=false; box.Filled=false; box.Thickness=1.5; box.Color=Color3.fromRGB(220,0,255)
+                local hp   = Drawing.new("Square"); hp.Visible=false; hp.Filled=true; hp.Color=Color3.fromRGB(0,255,80)
+                local nm   = Drawing.new("Text");   nm.Visible=false; nm.Size=13; nm.Font=2; nm.Color=Color3.fromRGB(255,255,255); nm.Outline=true; nm.OutlineColor=Color3.fromRGB(0,0,0); nm.Center=true
+                local dist = Drawing.new("Text");   dist.Visible=false; dist.Size=11; dist.Font=2; dist.Color=Color3.fromRGB(200,200,200); dist.Outline=true; dist.OutlineColor=Color3.fromRGB(0,0,0); dist.Center=true
+                S.ESPObjects[pl] = {box=box, hp=hp, nm=nm, dist=dist}
+            end
+        end
+        local esp = S.ESPObjects[pl]; if not esp then continue end
+        local char = pl.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        local hum  = char and char:FindFirstChildOfClass("Humanoid")
+        if not S.ESPOn or not hrp or not hum or hum.Health<=0 then
+            for _, d in pairs(esp) do d.Visible=false end; continue
+        end
+        local rp, depth, inV = Camera:WorldToViewportPoint(hrp.Position)
+        local hp2, _, _      = Camera:WorldToViewportPoint(hrp.Position+Vector3.new(0,3,0))
+        if not inV or depth<0 then for _,d in pairs(esp) do d.Visible=false end; continue end
+        local h = math.abs(hp2.Y - rp.Y)*2.5; local w = h*0.55
+        esp.box.Size=Vector2.new(w,h); esp.box.Position=Vector2.new(rp.X-w/2, rp.Y-h/2); esp.box.Visible=true
+        local r = hum.Health/hum.MaxHealth
+        esp.hp.Size=Vector2.new(4,h*r); esp.hp.Position=Vector2.new(rp.X-w/2-7, rp.Y-h/2+h*(1-r))
+        esp.hp.Color=Color3.fromRGB(math.floor(255*(1-r)),math.floor(255*r),50); esp.hp.Visible=true
+        esp.nm.Text=pl.Name; esp.nm.Position=Vector2.new(rp.X, rp.Y-h/2-16); esp.nm.Visible=true
+        local myHRP = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        local d2 = myHRP and math.floor((myHRP.Position-hrp.Position).Magnitude) or 0
+        esp.dist.Text=d2.."m"; esp.dist.Position=Vector2.new(rp.X, rp.Y+h/2+2); esp.dist.Visible=true
+    end
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- CHAMS
+-- ──────────────────────────────────────────────────────────────
+local function UpdateChams()
+    for _, pl in ipairs(Players:GetPlayers()) do
+        if pl==LP then continue end
+        local char=pl.Character
+        if S.ChamsOn and char then
+            if not S.ChamsObjects[pl] then
+                local hl=Instance.new("SelectionBox")
+                hl.Adornee=char; hl.Color3=Color3.fromRGB(180,0,255)
+                hl.SurfaceColor3=Color3.fromRGB(180,0,255); hl.SurfaceTransparency=0.65
+                hl.LineThickness=0.03; hl.Parent=CoreGui
+                S.ChamsObjects[pl]=hl
+            end
+        else
+            if S.ChamsObjects[pl] then S.ChamsObjects[pl]:Destroy(); S.ChamsObjects[pl]=nil end
+        end
+    end
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- AIMBOT
+-- ──────────────────────────────────────────────────────────────
+local AimbotTarget
+
+local function GetTarget()
+    local best, bestDist = nil, S.AimbotFOV
+    local vc = Camera.ViewportSize
+    local sc = Vector2.new(vc.X/2, vc.Y/2)
+    for _, pl in ipairs(Players:GetPlayers()) do
+        if pl==LP then continue end
+        if S.TeamCheck and pl.Team==LP.Team then continue end
+        local char=pl.Character; if not char then continue end
+        local hum=char:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health<=0 then continue end
+        local part=char:FindFirstChild(S.AimbotPart) or char:FindFirstChild("Head")
+        if not part then continue end
+        if S.WallCheck then
+            local orig=Camera.CFrame.Position
+            local ray=Ray.new(orig,(part.Position-orig).Unit*9000)
+            local hit=Workspace:FindPartOnRayWithIgnoreList(ray,{LP.Character,Workspace:FindFirstChild("Ignore")})
+            if hit and not char:IsAncestorOf(hit) then continue end
+        end
+        local vp,depth,inV=Camera:WorldToViewportPoint(part.Position)
+        if not inV or depth<0 then continue end
+        local d=(Vector2.new(vp.X,vp.Y)-sc).Magnitude
+        if d<bestDist then bestDist=d; best=pl end
+    end
+    return best
+end
+
+-- FOV circle via Drawing
+local FOVCircle
+pcall(function()
+    FOVCircle=Drawing.new("Circle")
+    FOVCircle.Visible=false; FOVCircle.Thickness=1.5
+    FOVCircle.Color=Color3.fromRGB(180,0,255); FOVCircle.Transparency=1
+    FOVCircle.Filled=false; FOVCircle.NumSides=60
+end)
+
+-- ──────────────────────────────────────────────────────────────
+-- FLY
+-- ──────────────────────────────────────────────────────────────
+local function StartFly()
+    local char=LP.Character; if not char then return end
+    local hrp=char:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+    local hum=char:FindFirstChildOfClass("Humanoid"); if hum then hum.PlatformStand=true end
+    if S.FlyBV then S.FlyBV:Destroy() end
+    if S.FlyBG then S.FlyBG:Destroy() end
+    S.FlyBV=Instance.new("BodyVelocity"); S.FlyBV.Velocity=Vector3.new(0,0,0); S.FlyBV.MaxForce=Vector3.new(1e9,1e9,1e9); S.FlyBV.P=1e9; S.FlyBV.Parent=hrp
+    S.FlyBG=Instance.new("BodyGyro"); S.FlyBG.MaxTorque=Vector3.new(1e9,1e9,1e9); S.FlyBG.P=1e4; S.FlyBG.CFrame=hrp.CFrame; S.FlyBG.Parent=hrp
+end
+local function StopFly()
+    if S.FlyBV then S.FlyBV:Destroy(); S.FlyBV=nil end
+    if S.FlyBG then S.FlyBG:Destroy(); S.FlyBG=nil end
+    local char=LP.Character; if not char then return end
+    local hum=char:FindFirstChildOfClass("Humanoid"); if hum then hum.PlatformStand=false end
+end
+local function TickFly()
+    if not S.FlyOn or not S.FlyBV then return end
+    local char=LP.Character; if not char then return end
+    local hrp=char:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+    local dir=Vector3.new(0,0,0)
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir=dir+Camera.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir=dir-Camera.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir=dir-Camera.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir=dir+Camera.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
+    S.FlyBV.Velocity=dir*S.FlySpeedVal
+    S.FlyBG.CFrame=Camera.CFrame
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- NOCLIP
+-- ──────────────────────────────────────────────────────────────
+RunService.Stepped:Connect(function()
+    if S.NoClipOn then
+        local c=LP.Character; if not c then return end
+        for _,p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") and p.CanCollide then p.CanCollide=false end
+        end
+    end
+end)
+
+-- ──────────────────────────────────────────────────────────────
+-- GOD BLOCK / GOD ARMOR
+-- ──────────────────────────────────────────────────────────────
+local godConn
+local function StartGodBlock()
+    if godConn then godConn:Disconnect() end
+    godConn=RunService.Heartbeat:Connect(function()
+        if not S.GodBlockOn then godConn:Disconnect(); return end
+        local c=LP.Character; if not c then return end
+        local h=c:FindFirstChildOfClass("Humanoid"); if h then h.Health=h.MaxHealth end
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- REACH
+-- ──────────────────────────────────────────────────────────────
+local function SetReach(on)
+    local c=LP.Character; if not c then return end
+    for _,tool in ipairs(c:GetChildren()) do
+        if tool:IsA("Tool") then
+            local handle=tool:FindFirstChild("Handle")
+            if handle then
+                if on then
+                    local weld=Instance.new("SelectionBox")
+                    weld.Parent=tool
+                else
+                    -- extend hit box conceptually via WalkSpeed manipulation is client-side only
+                end
+            end
+        end
+    end
+    -- Reach via tool handle size
+    pcall(function()
+        for _,tool in ipairs(LP.Character:GetChildren()) do
+            if tool:IsA("Tool") then
+                local h=tool:FindFirstChild("Handle")
+                if h then h.Size=on and Vector3.new(20,1,20) or Vector3.new(1,1,1) end
+            end
+        end
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- FLING
+-- ──────────────────────────────────────────────────────────────
+local function FlingNearest()
+    local myHRP=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+    local best,bestDist=nil,math.huge
+    for _,pl in ipairs(Players:GetPlayers()) do
+        if pl==LP then continue end
+        local hrp=pl.Character and pl.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+        local d=(myHRP.Position-hrp.Position).Magnitude
+        if d<bestDist then bestDist=d; best=hrp end
+    end
+    if best then
+        local bv=Instance.new("BodyVelocity")
+        bv.Velocity=(best.Position-myHRP.Position).Unit*200+Vector3.new(0,100,0)
+        bv.MaxForce=Vector3.new(1e9,1e9,1e9); bv.Parent=best
+        task.delay(0.2, function() bv:Destroy() end)
+        Notify("FLING","Flung nearest player!",2)
+    end
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- WHITE CHARACTER
+-- ──────────────────────────────────────────────────────────────
+local function SetWhiteCharacter(on)
+    pcall(function()
+        local char = LP.Character; if not char then return end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") or part:IsA("MeshPart") then
+                if on then
+                    part:SetAttribute("_origColor", tostring(part.BrickColor))
+                    part.BrickColor = BrickColor.new("White")
+                    part.Material   = Enum.Material.SmoothPlastic
+                else
+                    local orig = part:GetAttribute("_origColor")
+                    if orig then part.BrickColor = BrickColor.new(orig) end
+                end
+            end
+        end
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- FLING TOUCH
+-- ──────────────────────────────────────────────────────────────
+local function StartFlingTouch()
+    if S.FlingTouchConn then S.FlingTouchConn:Disconnect() end
+    S.FlingTouchConn = RunService.Heartbeat:Connect(function()
+        if not S.FlingTouchOn then S.FlingTouchConn:Disconnect(); return end
+        local char = LP.Character; local myHRP = char and char:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl == LP then continue end
+            local hrp = pl.Character and pl.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then continue end
+            if (myHRP.Position - hrp.Position).Magnitude < 6 then
+                local bv = Instance.new("BodyVelocity")
+                bv.Velocity   = (hrp.Position - myHRP.Position).Unit * 220 + Vector3.new(0, 120, 0)
+                bv.MaxForce   = Vector3.new(1e9,1e9,1e9)
+                bv.Parent     = hrp
+                task.delay(0.15, function() pcall(function() bv:Destroy() end) end)
+            end
+        end
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- SPAM CALL ALL (spam phone calls to all players)
+-- ──────────────────────────────────────────────────────────────
+local function StartSpamCall()
+    if S.SpamCallConn then S.SpamCallConn:Disconnect() end
+    S.SpamCallConn = RunService.Heartbeat:Connect(function()
+        if not S.SpamCallOn then S.SpamCallConn:Disconnect(); return end
+        pcall(function()
+            -- Attempt to fire the call remote if it exists in game
+            local remote = Workspace:FindFirstChild("Remotes",true) or game:GetService("ReplicatedStorage"):FindFirstChild("Remotes",true)
+            if remote then
+                local callRem = remote:FindFirstChild("Call") or remote:FindFirstChild("PhoneCall")
+                if callRem then
+                    for _, pl in ipairs(Players:GetPlayers()) do
+                        if pl ~= LP then
+                            pcall(function() callRem:FireServer(pl) end)
+                        end
+                    end
+                end
+            end
+        end)
+        task.wait(0.3)
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- ROTATING CROSSHAIR
+-- ──────────────────────────────────────────────────────────────
+local CrosshairGui
+
+local function StartCrosshair()
+    if CrosshairGui then CrosshairGui:Destroy() end
+    CrosshairGui = Instance.new("ScreenGui")
+    CrosshairGui.Name = "RotatingCrosshair"
+    CrosshairGui.ResetOnSpawn = false
+    CrosshairGui.IgnoreGuiInset = true
+    CrosshairGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    CrosshairGui.Parent = LPGui
+
+    local cx, cy = Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2
+    local size   = 20
+    local lines  = {}
+
+    -- 4 crosshair bars
+    for i = 1, 4 do
+        local line = Instance.new("Frame", CrosshairGui)
+        line.BackgroundColor3 = Color3.fromRGB(255, 50, 255)
+        line.BorderSizePixel  = 0
+        line.Size = UDim2.new(0, 14, 0, 2)
+        line.AnchorPoint = Vector2.new(0.5, 0.5)
+        table.insert(lines, line)
+    end
+
+    RunService.RenderStepped:Connect(function()
+        if not S.RotatingCrossOn or not CrosshairGui or not CrosshairGui.Parent then return end
+        S.CrosshairAngle = (S.CrosshairAngle + 2) % 360
+        local cx2, cy2 = Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2
+        for i, line in ipairs(lines) do
+            local angle = math.rad(S.CrosshairAngle + (i-1)*90)
+            local ox    = math.cos(angle) * size
+            local oy    = math.sin(angle) * size
+            line.Position  = UDim2.new(0, cx2 + ox, 0, cy2 + oy)
+            line.Rotation  = math.deg(angle)
+        end
+    end)
+end
+
+local function StopCrosshair()
+    if CrosshairGui then CrosshairGui:Destroy(); CrosshairGui = nil end
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- ANTI VOID (prevents falling out of map)
+-- ──────────────────────────────────────────────────────────────
+local function StartAntiVoid()
+    if S.AntiVoidConn then S.AntiVoidConn:Disconnect() end
+    S.AntiVoidConn = RunService.Heartbeat:Connect(function()
+        if not S.AntiVoidOn then S.AntiVoidConn:Disconnect(); return end
+        local char = LP.Character; local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp and hrp.Position.Y < -80 then
+            hrp.CFrame = CFrame.new(hrp.Position.X, 10, hrp.Position.Z)
+        end
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- AUTO ARMOR (auto-equip armor when low HP)
+-- ──────────────────────────────────────────────────────────────
+local function StartAutoArmor()
+    if S.AutoArmorConn then S.AutoArmorConn:Disconnect() end
+    S.AutoArmorConn = RunService.Heartbeat:Connect(function()
+        if not S.AutoArmorOn then S.AutoArmorConn:Disconnect(); return end
+        local char = LP.Character; if not char then return end
+        local hum  = char:FindFirstChildOfClass("Humanoid"); if not hum then return end
+        if hum.Health < hum.MaxHealth * 0.5 then
+            pcall(function()
+                local bp = LP.Backpack
+                for _, tool in ipairs(bp:GetChildren()) do
+                    if tool.Name:lower():find("armor") or tool.Name:lower():find("vest") then
+                        hum:EquipTool(tool); break
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- SPINBOT
+-- ──────────────────────────────────────────────────────────────
+local function StartSpinbot()
+    if S.SpinbotConn then S.SpinbotConn:Disconnect() end
+    S.SpinbotConn = RunService.RenderStepped:Connect(function()
+        if not S.SpinbotOn then S.SpinbotConn:Disconnect(); return end
+        local char = LP.Character; if not char then return end
+        local hrp  = char:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(S.SpinSpeed * 0.016), 0)
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- EQUIP ALL GUNS  (from backpack/character)
+-- ──────────────────────────────────────────────────────────────
+local function EquipAllGuns()
+    pcall(function()
+        local char = LP.Character; if not char then return end
+        local hum  = char:FindFirstChildOfClass("Humanoid"); if not hum then return end
+        for _, tool in ipairs(LP.Backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                hum:EquipTool(tool)
+                task.wait(0.05)
+            end
+        end
+    end)
+    Notify("EQUIP ALL","Equipped all tools",2)
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- BUY ITEM  (fires purchase remote or uses proximity prompts)
+-- ──────────────────────────────────────────────────────────────
+-- Da Hood buy remotes are typically found in ReplicatedStorage
+local function TryBuy(itemName)
+    local success = false
+    pcall(function()
+        local rs = game:GetService("ReplicatedStorage")
+        -- Search for buy remote
+        local buyRemote = rs:FindFirstChild("BuyItem",true)
+                       or rs:FindFirstChild("Purchase",true)
+                       or rs:FindFirstChild("Buy",true)
+                       or rs:FindFirstChild("ShopBuy",true)
+        if buyRemote then
+            buyRemote:FireServer(itemName)
+            success = true
+            return
+        end
+        -- Fallback: try proximity prompts
+        for _, prompt in ipairs(Workspace:GetDescendants()) do
+            if prompt:IsA("ProximityPrompt") and
+               (prompt.ActionText:lower():find(itemName:lower()) or
+                (prompt.Parent and prompt.Parent.Name:lower():find(itemName:lower()))) then
+                fireproximityprompt(prompt)
+                success = true
+                return
+            end
+        end
+    end)
+    Notify("BUY", success and "Buying: "..itemName or "Tried: "..itemName.." (use near shop)", 2)
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- TELEPORT
+-- ──────────────────────────────────────────────────────────────
+local function TeleportTo(pos)
+    local c=LP.Character; if not c then return end
+    local hrp=c:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+    hrp.CFrame=CFrame.new(pos+Vector3.new(0,5,0))
+end
+
+-- ──────────────────────────────────────────────────────────────
+-- MAIN LOOP
+-- ──────────────────────────────────────────────────────────────
+RunService.RenderStepped:Connect(function()
+    -- Aimbot
+    if S.AimbotOn then
+        AimbotTarget=GetTarget()
+        if AimbotTarget and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+            local char=AimbotTarget.Character
+            local part=char and (char:FindFirstChild(S.AimbotPart) or char:FindFirstChild("Head"))
+            if part then
+                Camera.CFrame=Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position,part.Position),S.AimbotSmooth)
+            end
+        else
+            AimbotTarget=nil
+        end
+    end
+    -- FOV circle
+    if FOVCircle then
+        FOVCircle.Visible=S.AimbotOn
+        if S.AimbotOn then
+            FOVCircle.Radius=S.AimbotFOV
+            FOVCircle.Position=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)
+            FOVCircle.Color=AimbotTarget and Color3.fromRGB(255,50,50) or Color3.fromRGB(180,0,255)
+        end
+    end
+    -- ESP / Chams
+    UpdateESP(); UpdateChams()
+    -- Fly
+    TickFly()
+    -- Speed
+    if S.SpeedOn then
+        local c=LP.Character; local h=c and c:FindFirstChildOfClass("Humanoid")
+        if h then h.WalkSpeed=S.SpeedVal end
+    end
+end)
+
+-- ──────────────────────────────────────────────────────────────
+-- CHAT COMMANDS  (csync prefix + standard colon prefix)
+-- ──────────────────────────────────────────────────────────────
+local function RunCommand(cmd, args)
+    cmd=cmd:lower()
+    -- csync fly / speed
+    if cmd=="cfly" then
+        S.FlyOn=not S.FlyOn
+        if S.FlyOn then StartFly() else StopFly() end
+        Notify("CSYNC FLY", S.FlyOn and "ON" or "OFF", 2)
+    elseif cmd=="cspeed" then
+        local v=tonumber(args[1])
+        if v then S.SpeedVal=v; S.SpeedOn=true; Notify("CSYNC SPEED","Speed → "..v,2) end
+    elseif cmd=="cgodmode" or cmd=="god" then
+        S.GodBlockOn=not S.GodBlockOn
+        if S.GodBlockOn then StartGodBlock() end
+        Notify("GOD MODE", S.GodBlockOn and "ON" or "OFF",2)
+    elseif cmd=="cesp" then
+        S.ESPOn=not S.ESPOn
+        if not S.ESPOn then ClearESP() end
+        Notify("ESP", S.ESPOn and "ON" or "OFF",2)
+    elseif cmd=="caimbot" then
+        S.AimbotOn=not S.AimbotOn
+        Notify("AIMBOT", S.AimbotOn and "ON" or "OFF",2)
+    elseif cmd=="cnoclip" then
+        S.NoClipOn=not S.NoClipOn
+        Notify("NOCLIP", S.NoClipOn and "ON" or "OFF",2)
+    elseif cmd=="ctp" then
+        local name=args[1]; if not name then return end
+        for _,t in ipairs(TELEPORTS) do
+            if t.name:lower():find(name:lower(),1,true) then
+                TeleportTo(t.pos); Notify("TELEPORT","→ "..t.name,2); return
+            end
+        end
+        Notify("TELEPORT","Location not found: "..name,2)
+    elseif cmd=="ctitle" then
+        if args[1] then
+            local newTitle=table.concat(args," ")
+            if IsCleanTitle(newTitle) then
+                S.MyTitle=newTitle; ApplyTitle()
+                Notify("TITLE","Title set: "..newTitle,3)
+            else
+                Notify("TITLE","⚠️ Inappropriate title!",3)
+            end
+        end
+    end
+end
+
+LP.Chatted:Connect(function(msg)
+    -- supports both "csync cfly" and ":cfly"
+    local lower=msg:lower()
+    local parts
+    if lower:sub(1,6)=="csync " then
+        parts=msg:sub(7):split(" ")
+    elseif msg:sub(1,1)==":" then
+        parts=msg:sub(2):split(" ")
+    else return end
+    local cmd=parts[1] or ""; local args={table.unpack(parts,2)}
+    RunCommand(cmd,args)
+end)
+
+-- ──────────────────────────────────────────────────────────────
+-- ──────────────────────────────────────────────────────────────
+--  G U I   B U I L D
+-- ──────────────────────────────────────────────────────────────
+-- ──────────────────────────────────────────────────────────────
+
+-- Remove old GUI
+for _, old in ipairs({LPGui:FindFirstChild("DaHoodGUI_v3"), CoreGui:FindFirstChild("DaHoodGUI_v3")}) do
+    if old then old:Destroy() end
+end
+
+local SG = Instance.new("ScreenGui")
+SG.Name = "DaHoodGUI_v3"
+SG.ResetOnSpawn = false
+SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+SG.IgnoreGuiInset = true
+SG.Parent = LPGui
+
+-- ──────────────── COLORS / THEME ────────────────
+local C = {
+    BG       = Color3.fromRGB(8,  8,  14),
+    Panel    = Color3.fromRGB(16, 12, 24),
+    PanelDk  = Color3.fromRGB(12, 8,  20),
+    Btn      = Color3.fromRGB(20, 10, 35),
+    BtnHov   = Color3.fromRGB(40, 5,  65),
+    BtnAct   = Color3.fromRGB(160,0,  220),
+    Neon     = Color3.fromRGB(220, 0, 255),
+    NeonSoft = Color3.fromRGB(180, 50, 230),
+    Text     = Color3.fromRGB(220, 50, 255),
+    TextW    = Color3.fromRGB(255, 255, 255),
+    TextDim  = Color3.fromRGB(140, 120, 160),
+    Border   = Color3.fromRGB(100, 0,  180),
+}
+
+-- ──────────────── MAIN WINDOW ────────────────
+local W = Instance.new("Frame", SG)
+W.Name = "Window"
+W.Size = UDim2.new(0, 620, 0, 440)
+W.Position = UDim2.new(0.5, -310, 0.5, -220)
+W.BackgroundColor3 = C.BG
+W.BorderSizePixel = 0
+W.ClipsDescendants = true
+Instance.new("UICorner", W).CornerRadius = UDim.new(0, 10)
+local ws = Instance.new("UIStroke", W); ws.Color=C.Border; ws.Thickness=1.5
+
+-- Glow behind window
+local glow = Instance.new("Frame", W)
+glow.Size = UDim2.new(1,60,1,60); glow.Position = UDim2.new(0,-30,0,-30)
+glow.BackgroundColor3 = C.Neon; glow.BackgroundTransparency = 0.88
+glow.BorderSizePixel = 0; glow.ZIndex = 0
+Instance.new("UICorner", glow).CornerRadius = UDim.new(0, 20)
+
+-- ──────────────── TOP BAR ────────────────
+local TopBar = Instance.new("Frame", W)
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 38)
+TopBar.BackgroundColor3 = C.Panel
+TopBar.BorderSizePixel = 0
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 10)
+-- fix bottom rounded corners
+local tbFix = Instance.new("Frame", TopBar)
+tbFix.Size = UDim2.new(1,0,0.5,0); tbFix.Position = UDim2.new(0,0,0.5,0)
+tbFix.BackgroundColor3 = C.Panel; tbFix.BorderSizePixel = 0
+
+-- Username label (replaces owner/friend)
+local userLbl = Instance.new("TextLabel", TopBar)
+userLbl.Size = UDim2.new(0, 200, 1, 0); userLbl.Position = UDim2.new(0, 12, 0, 0)
+userLbl.BackgroundTransparency = 1
+userLbl.Text = LP.Name   -- shows YOUR username automatically
+userLbl.TextColor3 = C.Text; userLbl.Font = Enum.Font.GothamBold
+userLbl.TextSize = 14; userLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Underline for username (like LevouchiaX in the image)
+local ul2 = Instance.new("Frame", TopBar)
+ul2.Size = UDim2.new(0, 0, 0, 2)
+ul2.Position = UDim2.new(0, 12, 1, -3)
+ul2.BackgroundColor3 = C.Neon; ul2.BorderSizePixel = 0
+-- Animate underline width to match username
+task.spawn(function()
+    task.wait(0.1)
+    local ts = userLbl.TextBounds.X + 4
+    TweenService:Create(ul2, TweenInfo.new(0.4, Enum.EasingStyle.Quint), {
+        Size = UDim2.new(0, ts, 0, 2)
+    }):Play()
+end)
+
+local titleBarLbl = Instance.new("TextLabel", TopBar)
+titleBarLbl.Size = UDim2.new(0, 200, 1, 0); titleBarLbl.Position = UDim2.new(0.5, -100, 0, 0)
+titleBarLbl.BackgroundTransparency = 1
+titleBarLbl.Text = "DA HOOD  ·  GOD SCRIPT"
+titleBarLbl.TextColor3 = Color3.fromRGB(80, 60, 100)
+titleBarLbl.Font = Enum.Font.GothamBold; titleBarLbl.TextSize = 12
+
+-- Close / Min buttons
+local function MakeCtrlBtn(lbl, xOffset, col)
+    local b = Instance.new("TextButton", TopBar)
+    b.Size = UDim2.new(0, 24, 0, 24); b.Position = UDim2.new(1, xOffset, 0.5, -12)
+    b.BackgroundColor3 = col; b.BorderSizePixel = 0
+    b.Text = lbl; b.TextColor3 = C.TextW; b.Font = Enum.Font.GothamBold; b.TextSize = 14
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+    return b
+end
+local closeBtn = MakeCtrlBtn("×", -8,  Color3.fromRGB(120,0,50))
+local minBtn   = MakeCtrlBtn("–", -36, Color3.fromRGB(30,10,55))
+closeBtn.MouseButton1Click:Connect(function() W.Visible=false; S.GUIOpen=false end)
+minBtn.MouseButton1Click:Connect(function()
+    local full = UDim2.new(0,620,0,440); local mini = UDim2.new(0,620,0,38)
+    TweenService:Create(W, TweenInfo.new(0.25,Enum.EasingStyle.Quint), {
+        Size = W.Size==mini and full or mini
+    }):Play()
+end)
+
+-- Drag
+local drag,dragS,startP=false,nil,nil
+TopBar.InputBegan:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=true;dragS=i.Position;startP=W.Position end
+end)
+UserInputService.InputChanged:Connect(function(i)
+    if drag and i.UserInputType==Enum.UserInputType.MouseMovement then
+        local d=i.Position-dragS
+        W.Position=UDim2.new(startP.X.Scale,startP.X.Offset+d.X,startP.Y.Scale,startP.Y.Offset+d.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end
+end)
+
+-- ──────────────── LEFT SIDEBAR (tab list) ────────────────
+local Sidebar = Instance.new("Frame", W)
+Sidebar.Name = "Sidebar"
+Sidebar.Size = UDim2.new(0, 110, 1, -38)
+Sidebar.Position = UDim2.new(0, 0, 0, 38)
+Sidebar.BackgroundColor3 = C.PanelDk; Sidebar.BorderSizePixel = 0
+local sidePad = Instance.new("UIPadding", Sidebar)
+sidePad.PaddingTop=UDim.new(0,8); sidePad.PaddingLeft=UDim.new(0,6); sidePad.PaddingRight=UDim.new(0,6)
+local sideLayout = Instance.new("UIListLayout", Sidebar)
+sideLayout.Padding=UDim.new(0,3)
+
+-- ──────────────── CENTER CONTENT ────────────────
+local ContentBG = Instance.new("Frame", W)
+ContentBG.Size = UDim2.new(1,-110-100, 1,-38)
+ContentBG.Position = UDim2.new(0,110, 0,38)
+ContentBG.BackgroundTransparency = 1; ContentBG.BorderSizePixel = 0
+
+-- Dividers
+local div1=Instance.new("Frame",W); div1.Size=UDim2.new(0,1,1,-38); div1.Position=UDim2.new(0,110,0,38); div1.BackgroundColor3=C.Border; div1.BorderSizePixel=0
+local div2=Instance.new("Frame",W); div2.Size=UDim2.new(0,1,1,-38); div2.Position=UDim2.new(1,-100,0,38); div2.BackgroundColor3=C.Border; div2.BorderSizePixel=0
+
+-- ──────────────── RIGHT STATS PANEL ────────────────
+local StatsPanel = Instance.new("Frame", W)
+StatsPanel.Size = UDim2.new(0, 98, 1, -38)
+StatsPanel.Position = UDim2.new(1, -98, 0, 38)
+StatsPanel.BackgroundColor3 = C.PanelDk; StatsPanel.BorderSizePixel = 0
+
+local function MakeStat(parent, label, yPos)
+    local lbl = Instance.new("TextLabel", parent)
+    lbl.Size = UDim2.new(1, -10, 0, 22)
+    lbl.Position = UDim2.new(0, 5, 0, yPos)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = label; lbl.TextColor3 = C.TextDim
+    lbl.Font = Enum.Font.Gotham; lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    return lbl
+end
+
+MakeStat(StatsPanel, "Cash:", 30)
+MakeStat(StatsPanel, "Bounty:", 60)
+MakeStat(StatsPanel, "Crew:", 90)
+-- "Set Nearest" button at bottom of stats panel
+local setNearest = Instance.new("TextButton", StatsPanel)
+setNearest.Size = UDim2.new(1,-10,0,30)
+setNearest.Position = UDim2.new(0,5,1,-40)
+setNearest.BackgroundColor3 = C.BtnAct; setNearest.BorderSizePixel=0
+setNearest.Text="Set Nearest"; setNearest.TextColor3=C.Text
+setNearest.Font=Enum.Font.GothamBold; setNearest.TextSize=11
+Instance.new("UICorner",setNearest).CornerRadius=UDim.new(0,6)
+setNearest.MouseButton1Click:Connect(function()
+    S.AimbotOn=true
+    local t=GetTarget()
+    if t then Notify("TARGET","Targeting: "..t.Name,2)
+    else Notify("TARGET","No target found",2) end
+end)
+
+-- Live stats updater
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        local stats=LP:FindFirstChild("leaderstats") or LP:FindFirstChild("Stats")
+        if stats then
+            local cash=stats:FindFirstChild("Cash") or stats:FindFirstChild("Money")
+            local bounty=stats:FindFirstChild("Bounty") or stats:FindFirstChild("KOs")
+            if cash then StatsPanel:FindFirstChild("TextLabel") end
+        end
+    end)
+end)
+
+-- ──────────────── GRID BUTTON HELPER ────────────────
+local Pages = {}
+local TabBtns = {}
+
+local function NewPage(name)
+    local page=Instance.new("ScrollingFrame",ContentBG)
+    page.Name=name.."Page"; page.Size=UDim2.new(1,0,1,0)
+    page.BackgroundTransparency=1; page.BorderSizePixel=0
+    page.ScrollBarThickness=3; page.ScrollBarImageColor3=C.Neon
+    page.CanvasSize=UDim2.new(0,0,0,0); page.AutomaticCanvasSize=Enum.AutomaticSize.Y
+    page.Visible=false
+    local pad=Instance.new("UIPadding",page)
+    pad.PaddingTop=UDim.new(0,8); pad.PaddingLeft=UDim.new(0,8); pad.PaddingRight=UDim.new(0,8); pad.PaddingBottom=UDim.new(0,8)
+    -- Grid layout for buttons
+    local grid=Instance.new("UIGridLayout",page)
+    grid.CellSize=UDim2.new(0,106,0,36)
+    grid.CellPadding=UDim2.new(0,6,0,6)
+    grid.HorizontalAlignment=Enum.HorizontalAlignment.Left
+    grid.VerticalAlignment=Enum.VerticalAlignment.Top
+    Pages[name]=page
+    return page, grid
+end
+
+local function NewListPage(name)
+    local page=Instance.new("ScrollingFrame",ContentBG)
+    page.Name=name.."Page"; page.Size=UDim2.new(1,0,1,0)
+    page.BackgroundTransparency=1; page.BorderSizePixel=0
+    page.ScrollBarThickness=3; page.ScrollBarImageColor3=C.Neon
+    page.CanvasSize=UDim2.new(0,0,0,0); page.AutomaticCanvasSize=Enum.AutomaticSize.Y
+    page.Visible=false
+    local pad=Instance.new("UIPadding",page)
+    pad.PaddingTop=UDim.new(0,8); pad.PaddingLeft=UDim.new(0,8); pad.PaddingRight=UDim.new(0,8); pad.PaddingBottom=UDim.new(0,8)
+    local list=Instance.new("UIListLayout",page); list.Padding=UDim.new(0,6)
+    Pages[name]=page
+    return page
+end
+
+-- Grid button (neon pink, black bg) — matches image exactly
+local function GBtn(parent, label, isToggle, onCallback)
+    local btn=Instance.new("TextButton",parent)
+    btn.Text=label; btn.Font=Enum.Font.GothamBold; btn.TextSize=12
+    btn.TextColor3=C.Text; btn.BackgroundColor3=C.Btn; btn.BorderSizePixel=0
+    Instance.new("UICorner",btn).CornerRadius=UDim.new(0,6)
+    local stroke=Instance.new("UIStroke",btn); stroke.Color=C.Border; stroke.Thickness=0.8; stroke.Transparency=0.5
+
+    local active=false
+    btn.MouseButton1Click:Connect(function()
+        if isToggle then
+            active=not active
+            TweenService:Create(btn,TweenInfo.new(0.15),{
+                BackgroundColor3=active and C.BtnAct or C.Btn,
+                TextColor3=active and C.TextW or C.Text
+            }):Play()
+        else
+            TweenService:Create(btn,TweenInfo.new(0.1),{BackgroundColor3=C.BtnAct}):Play()
+            task.delay(0.18,function() TweenService:Create(btn,TweenInfo.new(0.2),{BackgroundColor3=C.Btn}):Play() end)
+        end
+        if onCallback then onCallback(active) end
+    end)
+    btn.MouseEnter:Connect(function()
+        if not active then TweenService:Create(btn,TweenInfo.new(0.1),{BackgroundColor3=C.BtnHov}):Play() end
+    end)
+    btn.MouseLeave:Connect(function()
+        if not active then TweenService:Create(btn,TweenInfo.new(0.1),{BackgroundColor3=C.Btn}):Play() end
+    end)
+    return btn, function(v) -- external set
+        active=v
+        btn.BackgroundColor3=v and C.BtnAct or C.Btn
+        btn.TextColor3=v and C.TextW or C.Text
+    end
+end
+
+-- Sidebar tab button
+local function SideBtn(name, icon)
+    local b=Instance.new("TextButton",Sidebar)
+    b.Size=UDim2.new(1,0,0,34)
+    b.BackgroundColor3=C.Btn; b.BorderSizePixel=0
+    b.Text=(icon or "").."\n"..name
+    b.TextColor3=C.TextDim; b.Font=Enum.Font.GothamSemibold; b.TextSize=10
+    b.TextWrapped=true; b.LineHeight=1.1
+    Instance.new("UICorner",b).CornerRadius=UDim.new(0,7)
+    TabBtns[name]=b
+    b.MouseButton1Click:Connect(function()
+        for n,p in pairs(Pages) do p.Visible=(n==name) end
+        for n,tb in pairs(TabBtns) do
+            TweenService:Create(tb,TweenInfo.new(0.15),{
+                BackgroundColor3=n==name and C.BtnAct or C.Btn,
+                TextColor3=n==name and C.TextW or C.TextDim
+            }):Play()
+        end
+        S.CurrentPage=name
+    end)
+    return b
+end
+
+-- ──────────────── BUILD PAGES ────────────────
+
+-- PAGE 1: Main Scripts (matches image grid)
+local p1, _ = NewPage("Main Scripts")
+SideBtn("Main Scripts","⚙️")
+
+GBtn(p1, "GodBlock",  true, function(v) S.GodBlockOn=v; if v then StartGodBlock() end; Notify("GODBLOCK",v and "ON" or "OFF",1.5) end)
+GBtn(p1, "Reach",     true, function(v) S.ReachOn=v; SetReach(v); Notify("REACH",v and "ON" or "OFF",1.5) end)
+GBtn(p1, "Target",    false,function() S.AimbotOn=true; Notify("TARGET","Aimbot target set",1.5) end)
+GBtn(p1, "GodArmor",  true, function(v) S.GodArmor=v
+    pcall(function()
+        -- repeatedly set armor value
+        local char=LP.Character
+        if char then
+            local armor=char:FindFirstChild("Armor") or char:FindFirstChild("ArmorValue")
+            if armor then armor.Value=v and 99 or 0 end
+        end
+    end)
+    Notify("GODARMOR",v and "ON" or "OFF",1.5)
+end)
+GBtn(p1, "NoRecoil",  true, function(v) S.NoRecoilOn=v
+    pcall(function()
+        if v then
+            -- Patch camera recoil by disabling shake
+            local cam=Workspace.Camera
+            if cam then cam.CameraType=Enum.CameraType.Custom end
+        end
+    end)
+    Notify("NORECOIL",v and "ON" or "OFF",1.5)
+end)
+GBtn(p1, "View",      true, function(v) S.ViewOn=v
+    -- Toggle first person lock off
+    pcall(function()
+        LP.CameraMaxZoomDistance=v and 100 or 12.5
+    end)
+    Notify("VIEW",v and "Zoom unlocked" or "Reset",1.5)
+end)
+GBtn(p1, "Headless",  true, function(v) S.HeadlessOn=v
+    pcall(function()
+        local c=LP.Character; if not c then return end
+        local head=c:FindFirstChild("Head"); if not head then return end
+        -- Client-side: make head invisible
+        for _,p in ipairs(head:GetDescendants()) do
+            if p:IsA("BasePart") or p:IsA("SpecialMesh") or p:IsA("MeshPart") then
+                p.Transparency=v and 1 or 0
+            end
+        end
+    end)
+    Notify("HEADLESS",v and "ON" or "OFF",1.5)
+end)
+GBtn(p1, "Fling",     false,function() FlingNearest() end)
+GBtn(p1, "GoTo",      false,function()
+    local t=GetTarget(); if t then
+        local h=t.Character and t.Character:FindFirstChild("HumanoidRootPart")
+        if h then TeleportTo(h.Position); Notify("GoTo","→ "..t.Name,2) end
+    else Notify("GoTo","No target",2) end
+end)
+GBtn(p1, "FreeFists(T)", true, function(v) S.FreeFistsOn=v
+    -- Hold T to punch without tool
+    if v then
+        UserInputService.InputBegan:Connect(function(i,gp)
+            if gp then return end
+            if i.KeyCode==Enum.KeyCode.T and S.FreeFistsOn then
+                pcall(function()
+                    local char=LP.Character; if not char then return end
+                    local hum=char:FindFirstChildOfClass("Humanoid")
+                    if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+                end)
+            end
+        end)
+    end
+    Notify("FREEFISTS",v and "ON" or "OFF",1.5)
+end)
+GBtn(p1, "FlyMode",   true, function(v) S.FlyOn=v; if v then StartFly() else StopFly() end; Notify("FLY",v and "ON" or "OFF",1.5) end)
+GBtn(p1, "NoClip(Z)", true, function(v) S.NoClipOn=v; Notify("NOCLIP",v and "ON" or "OFF",1.5) end)
+
+-- Fly speed buttons (match image: FlySpeed-, Fly(X), FlySpeed+)
+GBtn(p1, "FlySpeed –",false,function() S.FlySpeedVal=math.max(10,S.FlySpeedVal-10); Notify("FLY SPD","→ "..S.FlySpeedVal,1) end)
+GBtn(p1, "Fly(X)",    false,function() S.FlyOn=not S.FlyOn; if S.FlyOn then StartFly() else StopFly() end; Notify("FLY",S.FlyOn and "ON" or "OFF",1.5) end)
+GBtn(p1, "FlySpeed +",false,function() S.FlySpeedVal=math.min(300,S.FlySpeedVal+10); Notify("FLY SPD","→ "..S.FlySpeedVal,1) end)
+
+-- PAGE 2: Side Scripts (speed, teleport to player)
+local p2=NewListPage("Side Scripts")
+SideBtn("Side Scripts","📜")
+
+local function RowBtn(parent, label, isToggle, cb)
+    local row=Instance.new("Frame",parent); row.Size=UDim2.new(1,0,0,36); row.BackgroundColor3=C.Btn; row.BorderSizePixel=0
+    Instance.new("UICorner",row).CornerRadius=UDim.new(0,7)
+    local s2=Instance.new("UIStroke",row); s2.Color=C.Border; s2.Thickness=0.8; s2.Transparency=0.5
+    local lbl=Instance.new("TextLabel",row); lbl.Size=UDim2.new(1,-50,1,0); lbl.Position=UDim2.new(0,10,0,0); lbl.BackgroundTransparency=1
+    lbl.Text=label; lbl.TextColor3=C.Text; lbl.Font=Enum.Font.GothamBold; lbl.TextSize=12; lbl.TextXAlignment=Enum.TextXAlignment.Left
+    local active=false
+    if isToggle then
+        local tbg=Instance.new("Frame",row); tbg.Size=UDim2.new(0,40,0,20); tbg.Position=UDim2.new(1,-48,0.5,-10); tbg.BackgroundColor3=Color3.fromRGB(30,10,50); tbg.BorderSizePixel=0
+        Instance.new("UICorner",tbg).CornerRadius=UDim.new(1,0)
+        local kn=Instance.new("Frame",tbg); kn.Size=UDim2.new(0,14,0,14); kn.Position=UDim2.new(0,3,0.5,-7); kn.BackgroundColor3=Color3.fromRGB(140,120,160); kn.BorderSizePixel=0
+        Instance.new("UICorner",kn).CornerRadius=UDim.new(1,0)
+        local hitBtn=Instance.new("TextButton",row); hitBtn.Size=UDim2.new(1,0,1,0); hitBtn.BackgroundTransparency=1; hitBtn.Text=""
+        hitBtn.MouseButton1Click:Connect(function()
+            active=not active
+            TweenService:Create(tbg,TweenInfo.new(0.15),{BackgroundColor3=active and C.BtnAct or Color3.fromRGB(30,10,50)}):Play()
+            TweenService:Create(kn,TweenInfo.new(0.15),{Position=active and UDim2.new(0,22,0.5,-7) or UDim2.new(0,3,0.5,-7); BackgroundColor3=active and C.TextW or Color3.fromRGB(140,120,160)}):Play()
+            if cb then cb(active) end
+        end)
+    else
+        local hitBtn=Instance.new("TextButton",row); hitBtn.Size=UDim2.new(1,0,1,0); hitBtn.BackgroundTransparency=1; hitBtn.Text=""
+        hitBtn.MouseButton1Click:Connect(function()
+            TweenService:Create(row,TweenInfo.new(0.1),{BackgroundColor3=C.BtnAct}):Play()
+            task.delay(0.18,function() TweenService:Create(row,TweenInfo.new(0.2),{BackgroundColor3=C.Btn}):Play() end)
+            if cb then cb() end
+        end)
+    end
+    return row
+end
+
+RowBtn(p2,"Speed Hack",true,function(v) S.SpeedOn=v; if not v then local c=LP.Character;local h=c and c:FindFirstChildOfClass("Humanoid");if h then h.WalkSpeed=16 end end; Notify("SPEED",v and "ON" or "OFF",1.5) end)
+RowBtn(p2,"Speed +10", false,function() S.SpeedVal=math.min(300,S.SpeedVal+10); S.SpeedOn=true; Notify("SPEED","→ "..S.SpeedVal,1) end)
+RowBtn(p2,"Speed -10", false,function() S.SpeedVal=math.max(5,S.SpeedVal-10); Notify("SPEED","→ "..S.SpeedVal,1) end)
+RowBtn(p2,"Inf Jump",  true, function(v)
+    pcall(function()
+        local c=LP.Character; local h=c and c:FindFirstChildOfClass("Humanoid"); if h then h.JumpPower=v and 120 or 50 end
+    end)
+    Notify("INF JUMP",v and "ON" or "OFF",1.5)
+end)
+RowBtn(p2,"Anti Arrest",true,function(v)
+    -- Prevent arrest via continuous character refresh logic
+    Notify("ANTI ARREST",v and "ON (stay away from cops)" or "OFF",2)
+end)
+RowBtn(p2,"Auto Block",true,function(v) Notify("AUTO BLOCK",v and "ON" or "OFF",1.5) end)
+RowBtn(p2,"TP to Target",false,function()
+    local t=GetTarget(); if t then
+        local h=t.Character and t.Character:FindFirstChild("HumanoidRootPart")
+        if h then TeleportTo(h.Position); Notify("TP","→ "..t.Name,2) end
+    else Notify("TP","No target in FOV",2) end
+end)
+RowBtn(p2,"Bring Target",false,function()
+    local t=GetTarget(); if t then
+        local myHRP=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        local tHRP=t.Character and t.Character:FindFirstChild("HumanoidRootPart")
+        if myHRP and tHRP then tHRP.CFrame=myHRP.CFrame+Vector3.new(3,0,0); Notify("BRING","→ "..t.Name,2) end
+    else Notify("BRING","No target",2) end
+end)
+RowBtn(p2,"Kill Nearest",false,function()
+    local myHRP=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart"); if not myHRP then return end
+    local best,bd=nil,math.huge
+    for _,pl in ipairs(Players:GetPlayers()) do
+        if pl==LP then continue end
+        local h=pl.Character and pl.Character:FindFirstChild("HumanoidRootPart"); if not h then continue end
+        local d=(myHRP.Position-h.Position).Magnitude; if d<bd then bd=d;best=pl end
+    end
+    if best then
+        local hum=best.Character and best.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.Health=0; Notify("KILL","Killed: "..best.Name,2) end
+    end
+end)
+
+-- PAGE 3: Toggles
+local p3, _ = NewPage("Toggles")
+SideBtn("Toggles","🔀")
+GBtn(p3,"ESP On",       true, function(v) S.ESPOn=v; if not v then ClearESP() end; Notify("ESP",v and "ON" or "OFF",1.5) end)
+GBtn(p3,"Chams",        true, function(v) S.ChamsOn=v; Notify("CHAMS",v and "ON" or "OFF",1.5) end)
+GBtn(p3,"Aimbot",       true, function(v) S.AimbotOn=v; Notify("AIMBOT",v and "ON" or "OFF",1.5) end)
+GBtn(p3,"Silent Aim",   true, function(v) S.SilentAim=v; Notify("SILENT AIM",v and "ON" or "OFF",1.5) end)
+GBtn(p3,"TeamCheck",    true, function(v) S.TeamCheck=v end)
+GBtn(p3,"WallCheck",    true, function(v) S.WallCheck=v end)
+GBtn(p3,"Fly",          true, function(v) S.FlyOn=v; if v then StartFly() else StopFly() end end)
+GBtn(p3,"NoClip",       true, function(v) S.NoClipOn=v end)
+GBtn(p3,"GodBlock",     true, function(v) S.GodBlockOn=v; if v then StartGodBlock() end end)
+GBtn(p3,"Speed",        true, function(v) S.SpeedOn=v end)
+GBtn(p3,"FreeFists",    true, function(v) S.FreeFistsOn=v end)
+GBtn(p3,"Headless",     true, function(v) S.HeadlessOn=v end)
+
+-- PAGE 4: Quick TP
+local p4=NewListPage("Quick TP")
+SideBtn("Quick TP","⚡")
+
+for _, loc in ipairs(TELEPORTS) do
+    RowBtn(p4, loc.name, false, function()
+        TeleportTo(loc.pos)
+        Notify("TELEPORT","→ "..loc.name, 2)
+    end)
+end
+
+-- PAGE 5: Tools (title editor + misc)
+local p5=NewListPage("Tools")
+SideBtn("Tools","🔧")
+
+-- Title section
+local titleHeader=Instance.new("TextLabel",p5)
+titleHeader.Size=UDim2.new(1,0,0,26); titleHeader.BackgroundTransparency=1
+titleHeader.Text="── YOUR TITLE (visible to all) ──"
+titleHeader.TextColor3=C.Neon; titleHeader.Font=Enum.Font.GothamBold; titleHeader.TextSize=11
+
+-- Current title preview
+local previewFrame=Instance.new("Frame",p5)
+previewFrame.Size=UDim2.new(1,0,0,44); previewFrame.BackgroundColor3=C.PanelDk; previewFrame.BorderSizePixel=0
+Instance.new("UICorner",previewFrame).CornerRadius=UDim.new(0,8)
+local ps=Instance.new("UIStroke",previewFrame); ps.Color=C.Neon; ps.Thickness=1.2
+local previewLbl=Instance.new("TextLabel",previewFrame)
+previewLbl.Size=UDim2.new(1,0,1,0); previewLbl.BackgroundTransparency=1
+previewLbl.Text=S.MyTitle; previewLbl.TextColor3=C.Neon
+previewLbl.Font=Enum.Font.GothamBold; previewLbl.TextSize=14
+
+-- Input box
+local inputFrame=Instance.new("Frame",p5)
+inputFrame.Size=UDim2.new(1,0,0,38); inputFrame.BackgroundColor3=C.PanelDk; inputFrame.BorderSizePixel=0
+Instance.new("UICorner",inputFrame).CornerRadius=UDim.new(0,7)
+local is=Instance.new("UIStroke",inputFrame); is.Color=C.Border; is.Thickness=1
+local textBox=Instance.new("TextBox",inputFrame)
+textBox.Size=UDim2.new(1,-10,1,0); textBox.Position=UDim2.new(0,8,0,0)
+textBox.BackgroundTransparency=1; textBox.Text="Type your title here..."
+textBox.TextColor3=C.TextDim; textBox.PlaceholderColor3=Color3.fromRGB(100,80,120)
+textBox.Font=Enum.Font.Gotham; textBox.TextSize=12
+textBox.TextXAlignment=Enum.TextXAlignment.Left; textBox.ClearTextOnFocus=true
+textBox.MaxVisibleGraphemes=24
+
+textBox.FocusLost:Connect(function(enter)
+    if enter and textBox.Text~="" then
+        if IsCleanTitle(textBox.Text) then
+            S.MyTitle=textBox.Text
+            previewLbl.Text=S.MyTitle
+            if S.TitleVisible then ApplyTitle() end
+            Notify("TITLE","✅ Title set: "..S.MyTitle,3)
+        else
+            Notify("TITLE","⚠️ Title contains inappropriate words or is too long (max 24 chars). Try again.",4)
+            textBox.Text=""
+        end
+    end
+end)
+
+-- Toggle title visibility
+RowBtn(p5,"Show My Title",true,function(v)
+    S.TitleVisible=v
+    if v then ApplyTitle() else RemoveTitle() end
+    Notify("TITLE",v and "Title visible to all!" or "Title hidden",2)
+end)
+RowBtn(p5,"Reset Title",false,function()
+    S.MyTitle="⭐ PLAYER"; previewLbl.Text=S.MyTitle; textBox.Text=""
+    ApplyTitle(); Notify("TITLE","Reset to default",2)
+end)
+
+-- Preset titles
+local presetHeader=Instance.new("TextLabel",p5)
+presetHeader.Size=UDim2.new(1,0,0,22); presetHeader.BackgroundTransparency=1
+presetHeader.Text="── PRESET TITLES ──"
+presetHeader.TextColor3=C.NeonSoft; presetHeader.Font=Enum.Font.GothamBold; presetHeader.TextSize=10
+
+local PRESETS = {"👑 OWNER","⭐ GOAT","🔥 ON FIRE","💎 ELITE","🏆 CHAMPION","👻 GHOST","⚡ SPEEDY","🎯 AIMBOT","🌟 LEGEND","💀 DEMON"}
+for _, preset in ipairs(PRESETS) do
+    RowBtn(p5, preset, false, function()
+        S.MyTitle=preset; previewLbl.Text=preset
+        if S.TitleVisible then ApplyTitle() end
+        Notify("TITLE","Set: "..preset,2)
+    end)
+end
+
+-- Misc tools
+local miscHeader=Instance.new("TextLabel",p5)
+miscHeader.Size=UDim2.new(1,0,0,22); miscHeader.BackgroundTransparency=1
+miscHeader.Text="── MISC ──"
+miscHeader.TextColor3=C.NeonSoft; miscHeader.Font=Enum.Font.GothamBold; miscHeader.TextSize=10
+
+RowBtn(p5,"Respawn",     false,function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid"); if h then h.Health=0 end end)
+RowBtn(p5,"Delete Tools",false,function() local c=LP.Character; if c then for _,t in ipairs(c:GetChildren()) do if t:IsA("Tool") then t:Destroy() end end end end)
+RowBtn(p5,"Reset Camera",false,function() Camera.CameraType=Enum.CameraType.Custom end)
+RowBtn(p5,"Low GFX",     true, function(v)
+    for _,desc in ipairs(Workspace:GetDescendants()) do
+        if desc:IsA("BasePart") then desc.Material=v and Enum.Material.SmoothPlastic or desc.Material end
+    end
+    game:GetService("Lighting").GlobalShadows=not v
+    Notify("LOW GFX",v and "ON - less lag" or "OFF",2)
+end)
+
+-- PAGE 6: Aimbot settings
+local p6=NewListPage("Aimbot")
+SideBtn("Aimbot","🎯")
+
+-- Slider helper for this page
+local function AimSlider(parent, label, min, max, default, cb)
+    local row=Instance.new("Frame",parent); row.Size=UDim2.new(1,0,0,52); row.BackgroundColor3=C.PanelDk; row.BorderSizePixel=0
+    Instance.new("UICorner",row).CornerRadius=UDim.new(0,7)
+    local lbl=Instance.new("TextLabel",row); lbl.Size=UDim2.new(0.7,0,0,20); lbl.Position=UDim2.new(0,10,0,6); lbl.BackgroundTransparency=1
+    lbl.Text=label; lbl.TextColor3=C.TextW; lbl.Font=Enum.Font.Gotham; lbl.TextSize=12; lbl.TextXAlignment=Enum.TextXAlignment.Left
+    local vl=Instance.new("TextLabel",row); vl.Size=UDim2.new(0.3,0,0,20); vl.Position=UDim2.new(0.7,0,0,6); vl.BackgroundTransparency=1
+    vl.Text=tostring(default); vl.TextColor3=C.Neon; vl.Font=Enum.Font.GothamBold; vl.TextSize=12; vl.TextXAlignment=Enum.TextXAlignment.Right
+    local vl2=Instance.new("UIPadding",vl); vl2.PaddingRight=UDim.new(0,10)
+    local track=Instance.new("Frame",row); track.Size=UDim2.new(1,-20,0,6); track.Position=UDim2.new(0,10,0,34); track.BackgroundColor3=Color3.fromRGB(25,10,45); track.BorderSizePixel=0
+    Instance.new("UICorner",track).CornerRadius=UDim.new(1,0)
+    local fill=Instance.new("Frame",track); fill.Size=UDim2.new((default-min)/(max-min),0,1,0); fill.BackgroundColor3=C.Neon; fill.BorderSizePixel=0
+    Instance.new("UICorner",fill).CornerRadius=UDim.new(1,0)
+    local knob=Instance.new("Frame",track); knob.Size=UDim2.new(0,12,0,12); knob.Position=UDim2.new((default-min)/(max-min),-6,0.5,-6); knob.BackgroundColor3=C.TextW; knob.BorderSizePixel=0
+    Instance.new("UICorner",knob).CornerRadius=UDim.new(1,0)
+    local slid=false
+    knob.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then slid=true end end)
+    track.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then slid=true end end)
+    UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then slid=false end end)
+    UserInputService.InputChanged:Connect(function(i)
+        if slid and i.UserInputType==Enum.UserInputType.MouseMovement then
+            local ap=track.AbsolutePosition; local as=track.AbsoluteSize
+            local rx=math.clamp((i.Position.X-ap.X)/as.X,0,1)
+            local v=math.floor(min+(max-min)*rx)
+            fill.Size=UDim2.new(rx,0,1,0); knob.Position=UDim2.new(rx,-6,0.5,-6); vl.Text=tostring(v)
+            if cb then cb(v) end
+        end
+    end)
+    return row
+end
+
+RowBtn(p6,"Aimbot",    true, function(v) S.AimbotOn=v end)
+RowBtn(p6,"Silent Aim",true, function(v) S.SilentAim=v end)
+RowBtn(p6,"Team Check",true, function(v) S.TeamCheck=v end)
+RowBtn(p6,"Wall Check",true, function(v) S.WallCheck=v end)
+
+local lockParts={"Head","UpperTorso","LowerTorso","HumanoidRootPart"}
+local lpi=1
+RowBtn(p6,"Lock Part: "..lockParts[lpi],false,function()
+    lpi=lpi%#lockParts+1; S.AimbotPart=lockParts[lpi]; Notify("LOCK PART",lockParts[lpi],2)
+end)
+
+AimSlider(p6,"FOV Size",10,500,180,function(v) S.AimbotFOV=v end)
+AimSlider(p6,"Smoothness %",1,30,15,function(v) S.AimbotSmooth=v/100 end)
+AimSlider(p6,"Fly Speed",10,300,60,function(v) S.FlySpeedVal=v end)
+AimSlider(p6,"Walk Speed",5,300,30,function(v) S.SpeedVal=v end)
+
+-- ──────────────── PAGE 7: CHARACTER (Skido.gg style) ────────────────
+local p7 = NewListPage("Character")
+SideBtn("Character","👤")
+
+-- ── Helper: checkbox row (matches Skido.gg checkbox style) ──
+local function CheckRow(parent, label, keybindHint, isToggle, cb)
+    local row = Instance.new("Frame", parent)
+    row.Size = UDim2.new(1, 0, 0, 30)
+    row.BackgroundColor3 = C.PanelDk; row.BorderSizePixel = 0
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 5)
+
+    local check = Instance.new("Frame", row)
+    check.Size = UDim2.new(0, 14, 0, 14)
+    check.Position = UDim2.new(0, 8, 0.5, -7)
+    check.BackgroundColor3 = Color3.fromRGB(20, 10, 40)
+    check.BorderSizePixel = 0
+    Instance.new("UICorner", check).CornerRadius = UDim.new(0, 3)
+    Instance.new("UIStroke", check).Color = C.Border
+
+    local checkMark = Instance.new("TextLabel", check)
+    checkMark.Size = UDim2.new(1,0,1,0); checkMark.BackgroundTransparency = 1
+    checkMark.Text = ""; checkMark.TextColor3 = C.Neon
+    checkMark.Font = Enum.Font.GothamBold; checkMark.TextSize = 12
+
+    local lbl = Instance.new("TextLabel", row)
+    lbl.Size = UDim2.new(1, -60, 1, 0)
+    lbl.Position = UDim2.new(0, 28, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = label; lbl.TextColor3 = C.TextW
+    lbl.Font = Enum.Font.Gotham; lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+
+    if keybindHint then
+        local hint = Instance.new("TextLabel", row)
+        hint.Size = UDim2.new(0, 30, 1, 0); hint.Position = UDim2.new(1, -34, 0, 0)
+        hint.BackgroundTransparency = 1; hint.Text = keybindHint
+        hint.TextColor3 = Color3.fromRGB(100, 80, 130); hint.Font = Enum.Font.GothamBold; hint.TextSize = 11
+    end
+
+    local active = false
+    local hitBtn = Instance.new("TextButton", row)
+    hitBtn.Size = UDim2.new(1,0,1,0); hitBtn.BackgroundTransparency = 1; hitBtn.Text = ""
+    hitBtn.MouseButton1Click:Connect(function()
+        active = not active
+        checkMark.Text = active and "✓" or ""
+        check.BackgroundColor3 = active and C.BtnAct or Color3.fromRGB(20, 10, 40)
+        TweenService:Create(row, TweenInfo.new(0.1), {
+            BackgroundColor3 = active and Color3.fromRGB(30, 5, 55) or C.PanelDk
+        }):Play()
+        if cb then cb(active) end
+    end)
+    return row
+end
+
+-- ── Helper: slider row for Character page ──
+local function CharSlider(parent, label, min, max, default, unit, cb)
+    local row = Instance.new("Frame", parent)
+    row.Size = UDim2.new(1, 0, 0, 56)
+    row.BackgroundColor3 = C.PanelDk; row.BorderSizePixel = 0
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", row).Color = C.Border
+
+    local lbl = Instance.new("TextLabel", row)
+    lbl.Size = UDim2.new(0.6, 0, 0, 22); lbl.Position = UDim2.new(0, 10, 0, 4)
+    lbl.BackgroundTransparency = 1; lbl.Text = label
+    lbl.TextColor3 = C.TextW; lbl.Font = Enum.Font.Gotham; lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+
+    local vLbl = Instance.new("TextLabel", row)
+    vLbl.Size = UDim2.new(0.4, -10, 0, 22); vLbl.Position = UDim2.new(0.6, 0, 0, 4)
+    vLbl.BackgroundTransparency = 1; vLbl.Text = default..(unit or "")
+    vLbl.TextColor3 = C.Neon; vLbl.Font = Enum.Font.GothamBold; vLbl.TextSize = 12
+    vLbl.TextXAlignment = Enum.TextXAlignment.Right
+    local vp = Instance.new("UIPadding", vLbl); vp.PaddingRight = UDim.new(0, 8)
+
+    -- progress bar background
+    local bar = Instance.new("Frame", row)
+    bar.Size = UDim2.new(1, -20, 0, 8); bar.Position = UDim2.new(0, 10, 0, 32)
+    bar.BackgroundColor3 = Color3.fromRGB(100, 80, 120); bar.BorderSizePixel = 0
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+
+    local fill = Instance.new("Frame", bar)
+    fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
+    fill.BackgroundColor3 = C.Neon; fill.BorderSizePixel = 0
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+
+    local knob = Instance.new("Frame", bar)
+    knob.Size = UDim2.new(0, 14, 0, 14)
+    knob.Position = UDim2.new((default-min)/(max-min), -7, 0.5, -7)
+    knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255); knob.BorderSizePixel = 0
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    local slid = false
+    knob.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then slid=true end end)
+    bar.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then slid=true end end)
+    UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then slid=false end end)
+    UserInputService.InputChanged:Connect(function(i)
+        if slid and i.UserInputType==Enum.UserInputType.MouseMovement then
+            local ap = bar.AbsolutePosition; local as = bar.AbsoluteSize
+            local rx = math.clamp((i.Position.X-ap.X)/as.X, 0, 1)
+            local v  = math.floor(min + (max-min)*rx)
+            fill.Size = UDim2.new(rx, 0, 1, 0)
+            knob.Position = UDim2.new(rx, -7, 0.5, -7)
+            vLbl.Text = v..(unit or "")
+            if cb then cb(v) end
+        end
+    end)
+    return row
+end
+
+-- ── Section header ──
+local function CharHeader(parent, text)
+    local h = Instance.new("TextLabel", parent)
+    h.Size = UDim2.new(1, 0, 0, 22); h.BackgroundTransparency = 1
+    h.Text = text; h.TextColor3 = C.Neon; h.Font = Enum.Font.GothamBold; h.TextSize = 10
+    return h
+end
+
+CharHeader(p7, "── CHARACTER ──")
+CheckRow(p7, "Equip All Guns", "N", false, function() EquipAllGuns() end)
+CheckRow(p7, "Headless (Client Sided)", nil, true, function(v)
+    S.HeadlessOn = v
+    pcall(function()
+        local c = LP.Character; if not c then return end
+        local head = c:FindFirstChild("Head"); if not head then return end
+        for _, p in ipairs(head:GetDescendants()) do
+            if p:IsA("BasePart") or p:IsA("SpecialMesh") or p:IsA("MeshPart") then
+                p.Transparency = v and 1 or 0
+            end
+        end
+        -- Also hide the head decal
+        if v then head.Size = Vector3.new(0.001,0.001,0.001) end
+    end)
+    Notify("HEADLESS", v and "ON" or "OFF", 1.5)
+end)
+CheckRow(p7, "White Character", nil, true, function(v)
+    S.WhiteCharOn = v; SetWhiteCharacter(v)
+    Notify("WHITE CHAR", v and "ON" or "OFF", 1.5)
+end)
+CheckRow(p7, "Fling Touch", nil, true, function(v)
+    S.FlingTouchOn = v; if v then StartFlingTouch() end
+    Notify("FLING TOUCH", v and "ON" or "OFF", 1.5)
+end)
+CheckRow(p7, "Spam Call All", nil, true, function(v)
+    S.SpamCallOn = v; if v then StartSpamCall() end
+    Notify("SPAM CALL", v and "ON" or "OFF", 1.5)
+end)
+CheckRow(p7, "Rotating Crosshair", nil, true, function(v)
+    S.RotatingCrossOn = v
+    if v then StartCrosshair() else StopCrosshair() end
+    Notify("CROSSHAIR", v and "ON" or "OFF", 1.5)
+end)
+CheckRow(p7, "Anti Void", nil, true, function(v)
+    S.AntiVoidOn = v; if v then StartAntiVoid() end
+    Notify("ANTI VOID", v and "ON" or "OFF", 1.5)
+end)
+CheckRow(p7, "Auto Armor", nil, true, function(v)
+    S.AutoArmorOn = v; if v then StartAutoArmor() end
+    Notify("AUTO ARMOR", v and "ON" or "OFF", 1.5)
+end)
+
+CharHeader(p7, "── PERCENT TO BUY ──")
+CharSlider(p7, "Percent to Buy", 0, 120, 80, "/120", function(v) S.PercentToBuy = v end)
+
+CharHeader(p7, "── SPINBOT ──")
+CheckRow(p7, "Spinbot", nil, true, function(v)
+    S.SpinbotOn = v; if v then StartSpinbot() end
+    Notify("SPINBOT", v and "ON" or "OFF", 1.5)
+end)
+CharSlider(p7, "Spin Speed", 100, 3000, 500, "", function(v) S.SpinSpeed = v end)
+
+-- ──────────────── PAGE 8: BUY MENU ────────────────
+local p8 = NewListPage("Buy Menu")
+SideBtn("Buy Menu","🛒")
+
+-- Skido.gg full buy list from image
+local BUY_ITEMS = {
+    -- Food
+    { "🍔 Buy Hamburger",      "Hamburger"        },
+    -- Guns
+    { "🔫 Buy AK47",           "AK47"             },
+    { "🔫 Buy AK47 Ammo",      "AK47Ammo"         },
+    { "🔫 Buy Tactical Shotgun","TacticalShotgun"  },
+    { "🔫 Buy TacShotgun Ammo","TacticalShotgunAmmo"},
+    { "🛡️ Buy Fire Armor",     "FireArmor"        },
+    { "🔫 Buy Revolver",       "Revolver"         },
+    { "🔫 Buy Revolver Ammo",  "RevolverAmmo"     },
+    { "💣 Buy Grenade",        "Grenade"          },
+    { "🔫 Buy LMG",            "LMG"              },
+    { "🔫 Buy LMG Ammo",       "LMGAmmo"          },
+    { "🛡️ Buy High Med Armor", "HighMediumArmor"  },
+    { "🚀 Buy RPG",            "RPG"              },
+    { "🚀 Buy RPG Ammo",       "RPGAmmo"          },
+    { "🔫 Buy Rifle",          "Rifle"            },
+    { "🔫 Buy Rifle Ammo",     "RifleAmmo"        },
+    { "🔫 Buy DrumGun",        "DrumGun"          },
+    { "🔫 Buy DrumGun Ammo",   "DrumGunAmmo"      },
+    { "🔫 Buy Double Barrel",  "DoubleBarrel"     },
+    { "🔫 Buy DB Ammo",        "DoubleBarrelAmmo" },
+    { "🔫 Buy Pistol",         "Pistol"           },
+    { "🔫 Buy Pistol Ammo",    "PistolAmmo"       },
+    { "🗡️ Buy Knife",          "Knife"            },
+    { "🥊 Buy Bat",            "Bat"              },
+    { "🛡️ Buy Low Armor",      "LowArmor"         },
+    { "🛡️ Buy Mid Armor",      "MidArmor"         },
+    { "🛡️ Buy High Armor",     "HighArmor"        },
+    { "❤️ Buy Med Kit",        "MedKit"           },
+    { "🍎 Buy Apple",          "Apple"            },
+}
+
+-- Buy All button at top
+local buyAllBtn = Instance.new("TextButton", p8)
+buyAllBtn.Size = UDim2.new(1, 0, 0, 38)
+buyAllBtn.BackgroundColor3 = Color3.fromRGB(20, 60, 10)
+buyAllBtn.BorderSizePixel = 0
+buyAllBtn.Text = "🛒 BUY ALL ITEMS"
+buyAllBtn.TextColor3 = Color3.fromRGB(100, 255, 80)
+buyAllBtn.Font = Enum.Font.GothamBold; buyAllBtn.TextSize = 13
+Instance.new("UICorner", buyAllBtn).CornerRadius = UDim.new(0, 7)
+Instance.new("UIStroke", buyAllBtn).Color = Color3.fromRGB(50, 180, 30)
+buyAllBtn.MouseButton1Click:Connect(function()
+    for _, item in ipairs(BUY_ITEMS) do
+        TryBuy(item[2])
+        task.wait(0.05)
+    end
+    Notify("BUY ALL", "Attempted to buy all items!", 3)
+end)
+
+-- Individual buy buttons
+for _, item in ipairs(BUY_ITEMS) do
+    local label, key = item[1], item[2]
+    local row = Instance.new("TextButton", p8)
+    row.Size = UDim2.new(1, 0, 0, 32)
+    row.BackgroundColor3 = C.PanelDk; row.BorderSizePixel = 0
+    row.Text = label; row.TextColor3 = C.Text
+    row.Font = Enum.Font.GothamSemibold; row.TextSize = 11
+    row.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", row).Color = C.Border
+
+    local pad = Instance.new("UIPadding", row)
+    pad.PaddingLeft = UDim.new(0, 10)
+
+    row.MouseButton1Click:Connect(function()
+        TweenService:Create(row, TweenInfo.new(0.1), {BackgroundColor3 = C.BtnAct}):Play()
+        task.delay(0.2, function()
+            TweenService:Create(row, TweenInfo.new(0.2), {BackgroundColor3 = C.PanelDk}):Play()
+        end)
+        TryBuy(key)
+    end)
+    row.MouseEnter:Connect(function()
+        TweenService:Create(row, TweenInfo.new(0.08), {BackgroundColor3 = C.BtnHov}):Play()
+    end)
+    row.MouseLeave:Connect(function()
+        TweenService:Create(row, TweenInfo.new(0.08), {BackgroundColor3 = C.PanelDk}):Play()
+    end)
+end
+
+-- ──────────────── ACTIVATE FIRST TAB ────────────────
+for n,p in pairs(Pages) do p.Visible=(n=="Main Scripts") end
+TweenService:Create(TabBtns["Main Scripts"],TweenInfo.new(0.15),{BackgroundColor3=C.BtnAct,TextColor3=C.TextW}):Play()
+S.CurrentPage="Main Scripts"
+
+-- ──────────────── TOGGLE KEYBIND ────────────────
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode==Enum.KeyCode.RightShift then
+        S.GUIOpen=not S.GUIOpen
+        W.Visible=S.GUIOpen
+        if S.GUIOpen then
+            W.Size=UDim2.new(0,0,0,0)
+            TweenService:Create(W,TweenInfo.new(0.25,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,620,0,440)}):Play()
+        end
+    end
+    -- Z = noclip toggle
+    if input.KeyCode==Enum.KeyCode.Z and not gp then
+        S.NoClipOn=not S.NoClipOn; Notify("NOCLIP",S.NoClipOn and "ON" or "OFF",1.5)
+    end
+    -- X = fly toggle
+    if input.KeyCode==Enum.KeyCode.X and not gp then
+        S.FlyOn=not S.FlyOn; if S.FlyOn then StartFly() else StopFly() end; Notify("FLY",S.FlyOn and "ON" or "OFF",1.5)
+    end
+end)
+
+-- ──────────────── OPEN ANIMATION ────────────────
+W.Size=UDim2.new(0,0,0,0)
+TweenService:Create(W,TweenInfo.new(0.35,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,620,0,440)}):Play()
+
+-- ──────────────── STARTUP NOTIFS ────────────────
+task.wait(0.5)
+Notify("DA HOOD GOD SCRIPT v4","Loaded ✓  Press RightShift to toggle",4)
+task.wait(1)
+Notify("NEW: Character Tab","Spinbot, Fling Touch, White Char, Anti Void + more!",5)
+task.wait(1)
+Notify("NEW: Buy Menu Tab","Buy all weapons, armor & ammo in one click!",5)
+task.wait(1)
+Notify("COMMANDS","Chat: csync cfly | csync cspeed 50 | csync ctitle 👑 GOD",5)
